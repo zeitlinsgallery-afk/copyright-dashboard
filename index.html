@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ניטור זכויות יוצרים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f6f4f0; --panel: #ffffff; --ink: #1f1d1a; --muted: #6b665e; --line: #e4dfd6;
+  --accent: #8a5a2b; --accent-soft: #f3e8dc;
+  --new: #b4361f; --new-soft: #fbe6e1;
+  --ok: #2f6b3f; --ok-soft: #e2f0e5;
+  --warn: #8a6a12; --warn-soft: #f7efd4;
+  --info: #285a8a; --info-soft: #e1ecf6;
+  --shadow: 0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171513; --panel: #22201d; --ink: #f0ece6; --muted: #a59e93; --line: #36322d;
+    --accent: #d9a46c; --accent-soft: #3a2c1f;
+    --new: #f08a74; --new-soft: #43221b; --ok: #84c793; --ok-soft: #1f3324;
+    --warn: #e2c26a; --warn-soft: #3a3118; --info: #8bb6e0; --info-soft: #1c2b3a;
+    --shadow: none;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.5 "Heebo", "Segoe UI", Arial, sans-serif; }
+a { color: var(--info); }
+header { padding: 24px 16px 8px; max-width: 1200px; margin: 0 auto; }
+h1 { margin: 0; font-size: 24px; font-weight: 700; }
+.sub { color: var(--muted); margin-top: 2px; }
+main { max-width: 1200px; margin: 0 auto; padding: 8px 16px 48px; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 16px 0; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); }
+.stat b { display: block; font-size: 26px; line-height: 1.1; }
+.stat span { color: var(--muted); font-size: 13px; }
+.stat.hot b { color: var(--new); }
+
+.kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line);
+  border-radius: 10px; overflow: hidden; background: var(--panel); }
+.kind { font: inherit; font-weight: 500; padding: 10px 8px; border: 0; border-inline-start: 1px solid var(--line);
+  background: transparent; color: var(--ink); cursor: pointer; }
+.kind:first-child { border-inline-start: 0; }
+.kind .n { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+.kind[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 -3px 0 var(--accent); }
+.kind-hint { color: var(--muted); font-size: 13px; margin: 8px 2px 0; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px;
+  position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 8px 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.tab { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px;
+  padding: 5px 12px; cursor: pointer; font: inherit; font-size: 14px; }
+.tab[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.tab .n { opacity: .65; margin-inline-start: 4px; }
+select, input[type=search] { font: inherit; font-size: 14px; padding: 6px 10px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
+input[type=search] { flex: 1; min-width: 160px; }
+
+.group { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 14px;
+  box-shadow: var(--shadow); overflow: hidden; }
+.group-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 12px 14px;
+  border-bottom: 1px solid var(--line); }
+.group-head h2 { margin: 0; font-size: 17px; direction: ltr; unicode-bidi: isolate; }
+.group-head .meta { color: var(--muted); font-size: 13px; }
+.group-head .bulk { margin-inline-start: auto; display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+
+.card { display: grid; grid-template-columns: 220px 1fr; gap: 14px; padding: 14px; border-top: 1px solid var(--line); }
+.group .card:first-of-type { border-top: 0; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pair figure { margin: 0; }
+.pair img { width: 100%; aspect-ratio: 1; object-fit: contain; background: var(--bg); border-radius: 6px;
+  border: 1px solid var(--line); cursor: zoom-in; display: block; }
+.pair figcaption { font-size: 11px; color: var(--muted); text-align: center; margin-top: 2px; }
+.info { min-width: 0; }
+.title { font-weight: 500; margin: 0 0 2px; }
+.url { direction: ltr; text-align: right; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.url a { unicode-bidi: isolate; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin: 8px 0; }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.tag.strong { background: var(--ok-soft); color: var(--ok); }
+.tag.maybe { background: var(--warn-soft); color: var(--warn); }
+.tag.unknown { background: var(--info-soft); color: var(--info); }
+.dates { font-size: 12px; color: var(--muted); }
+.status { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.st { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--ink); }
+.st[aria-pressed="true"][data-s="new"] { background: var(--new-soft); color: var(--new); border-color: currentColor; }
+.st[aria-pressed="true"][data-s="takedown_sent"] { background: var(--warn-soft); color: var(--warn); border-color: currentColor; }
+.st[aria-pressed="true"][data-s="removed"] { background: var(--ok-soft); color: var(--ok); border-color: currentColor; }
+.st[aria-pressed="true"][data-s="not_infringing"],
+.st[aria-pressed="true"][data-s="authorized"] { background: var(--line); color: var(--ink); border-color: var(--muted); }
+.note { width: 100%; margin-top: 8px; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.more { display: block; width: 100%; padding: 10px; border: 0; border-top: 1px solid var(--line);
+  background: transparent; color: var(--info); font: inherit; cursor: pointer; }
+.empty { text-align: center; color: var(--muted); padding: 60px 0; }
+
+dialog { border: 0; padding: 0; background: transparent; max-width: 96vw; }
+dialog::backdrop { background: rgba(0,0,0,.75); }
+.zoom { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.zoom figure { margin: 0; text-align: center; color: #eee; font-size: 13px; }
+.zoom img { max-height: 80vh; max-width: 46vw; background: #fff; border-radius: 6px; }
+.primary { font: inherit; font-size: 14px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--accent); background: var(--accent); color: var(--panel); }
+dialog.panel { background: var(--panel); color: var(--ink); border-radius: 12px; width: min(640px, 94vw); }
+.export { padding: 18px; display: grid; gap: 10px; }
+.export h2 { margin: 0; font-size: 18px; }
+.export label { display: grid; gap: 4px; font-size: 14px; }
+.export label.check { display: flex; gap: 6px; align-items: center; }
+.export textarea { width: 100%; font: 13px/1.5 Consolas, monospace; padding: 8px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+.export .hint { margin: 0; color: var(--muted); font-size: 13px; }
+.export .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.export .actions button:not(.primary) { font: inherit; font-size: 14px; padding: 6px 12px; border-radius: 8px;
+  border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.login { position: fixed; inset: 0; background: var(--bg); display: grid; place-items: center; z-index: 20; padding: 16px; }
+.login[hidden] { display: none; }
+.login form { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px;
+  width: min(360px, 100%); display: grid; gap: 10px; box-shadow: var(--shadow); }
+.login h2 { margin: 0 0 4px; font-size: 20px; }
+.login input { font: inherit; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); }
+.login .hint { margin: 0; color: var(--new); font-size: 13px; min-height: 1em; }
+@media (max-width: 640px) {
+  .card { grid-template-columns: 1fr; }
+  .pair { max-width: 320px; }
+  .zoom img { max-width: 92vw; max-height: 42vh; }
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>ניטור זכויות יוצרים: היצירות של תמר צייטלין</h1>
+  <div class="sub" id="lastRun">טוען…</div>
+</header>
+<main>
+  <section class="stats" id="stats"></section>
+  <div class="kinds" id="kinds"></div>
+  <p class="kind-hint" id="kindHint"></p>
+  <div class="toolbar">
+    <div class="tabs" id="tabs"></div>
+    <select id="artwork" aria-label="יצירה"></select>
+    <select id="sort" aria-label="מיון">
+      <option value="count">אתרים עם הכי הרבה ממצאים</option>
+      <option value="new">הכי חדש</option>
+      <option value="score">ודאות גבוהה קודם</option>
+    </select>
+    <input type="search" id="q" placeholder="חיפוש לפי אתר, כתובת או כותרת">
+    <button class="primary" id="openExport">הכנת בקשת הסרה</button>
+  </div>
+  <div id="list"></div>
+</main>
+<dialog id="zoom"><div class="zoom" id="zoomBody"></div></dialog>
+<dialog id="export" class="panel">
+  <form method="dialog" class="export">
+    <h2>הכנת בקשת הסרה</h2>
+    <label>לאן שולחים
+      <select id="exPlatform"></select>
+    </label>
+    <label class="check"><input type="checkbox" id="exIncludeSent"> לכלול גם ממצאים שכבר נשלחה עליהם דרישה</label>
+    <p class="hint" id="exHint"></p>
+    <textarea id="exText" readonly rows="10" dir="ltr"></textarea>
+    <div class="actions">
+      <button type="button" class="primary" id="exCopy">העתק את הקישורים</button>
+      <a id="exForm" target="_blank" rel="noopener noreferrer">פתח את טופס ההסרה ↗</a>
+      <button type="button" id="exMark">סמן את כולם: נשלחה דרישת הסרה</button>
+      <button value="close">סגור</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="login" class="login" hidden>
+  <form id="loginForm">
+    <h2>כניסה לדשבורד</h2>
+    <input type="email" id="loginEmail" placeholder="מייל" autocomplete="username" required dir="ltr">
+    <input type="password" id="loginPassword" placeholder="סיסמה" autocomplete="current-password" required dir="ltr">
+    <button class="primary" type="submit">כניסה</button>
+    <p class="hint" id="loginError"></p>
+  </form>
+</div>
+<script src="config.js" onerror="void 0"></script>
+<script>
+// Data access. Without config.js the page talks to the local server (scanner/serve.py);
+// with it (the hosted copy) it signs in to Supabase and reads through row-level security.
+const CFG = window.DASH_CONFIG || null;
+let sb = null;
+
+const localApi = {
+  async load() {
+    const r = await fetch("/api/findings");
+    if (!r.ok) throw new Error(r.status);
+    return r.json();
+  },
+  async update(ids, patch) {
+    const r = await fetch("/api/findings", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, ...patch }),
+    });
+    if (!r.ok) throw new Error(r.status);
+  },
+  evidenceUrl: (f) => f.evidence,
+  originalUrl: (f) => `queries/${f.artwork_id}-full.jpg`,
+};
+
+const signed = {};  // evidence path -> short-lived signed URL (the bucket is private)
+const cloudApi = {
+  async load() {
+    let findings = [], from = 0;
+    for (;;) {
+      const { data, error } = await sb.from("findings").select("*").range(from, from + 999);
+      if (error) throw error;
+      findings = findings.concat(data);
+      if (data.length < 1000) break;
+      from += 1000;
+    }
+    const names = [...new Set(findings.map((f) => f.evidence.replace(/^evidence\//, "")).filter(Boolean))];
+    for (let i = 0; i < names.length; i += 500) {
+      const { data } = await sb.storage.from("evidence").createSignedUrls(names.slice(i, i + 500), 6 * 3600);
+      (data || []).forEach((d) => { if (d.signedUrl) signed[d.path] = d.signedUrl; });
+    }
+    const { data: runs } = await sb.from("runs").select("stats").order("finished", { ascending: false }).limit(1);
+    return { findings, runs: (runs || []).map((r) => r.stats), platforms: CFG.platforms };
+  },
+  async update(ids, patch) {
+    const row = { ...patch };
+    if (patch.status) row.status_changed = new Date().toISOString();
+    const { error } = await sb.from("findings").update(row).in("id", ids);
+    if (error) throw error;
+  },
+  evidenceUrl: (f) => signed[f.evidence.replace(/^evidence\//, "")] || "",
+  originalUrl: (f) => `${CFG.supabaseUrl}/storage/v1/object/public/queries/${f.artwork_id}-full.jpg`,
+};
+const api = CFG ? cloudApi : localApi;
+
+const STATUS = {
+  new: "חדש", takedown_sent: "נשלחה דרישת הסרה", removed: "הוסר",
+  not_infringing: "לא הפרה", authorized: "מורשה",
+};
+const TABS = [["open", "לטיפול"], ["new", "חדש"], ["takedown_sent", "נשלחה דרישה"],
+              ["removed", "הוסר"], ["closed", "לא הפרה / מורשה"], ["all", "הכול"]];
+const GROUP_PAGE = 30;
+
+const PAGE = {
+  gone: ["unknown", "העמוד לא נפתח (מופיע רק בגוגל)"],
+  blocked: ["unknown", "האתר חוסם בדיקה אוטומטית"],
+  unreachable: ["unknown", "האתר לא זמין"],
+};
+
+// Auto-generated spam stores share address patterns seen in the scans, e.g.
+// "?dba=27.550007.2.79", "?c82ad25=27_554088_2_4", "-211b578-03-553701-2-56/",
+// "?i=12069815031750". They also 404 for normal visitors (cloaking for Google).
+const SPAM_URL = /[?&][a-z0-9]{1,8}=(\d{2}[._]\d{5,7}[._]\d[._]\d{1,3}|[a-z]{0,10}\d{13,})$|-[0-9a-f]{7}-\d{2}-\d{6,7}-\d-\d{1,3}\/?$/i;
+const KINDS = [["real", "אתרים אמיתיים"], ["spam", "ספאם ותוצאות גוגל"], ["", "הכול"]];
+
+const state = { findings: [], runs: [], platforms: [], kind: "real", tab: "open", artwork: "", q: "", sort: "count", shown: GROUP_PAGE };
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString("he-IL", { day: "numeric", month: "numeric", year: "2-digit" }) : "";
+
+function inTab(f, tab) {
+  if (tab === "all") return true;
+  if (tab === "open") return f.status === "new" || f.status === "takedown_sent";
+  if (tab === "closed") return f.status === "not_infringing" || f.status === "authorized";
+  return f.status === tab;
+}
+
+function kindOf(f) {
+  const p = platformOf(f);
+  if (p && p.key !== "google") return "real";  // marketplaces and social networks
+  if (SPAM_URL.test(f.page_url || "") || f.page_status === "gone") return "spam";
+  return "real";
+}
+
+function visible() {
+  const q = state.q.trim().toLowerCase();
+  return state.findings.filter((f) =>
+    (!state.kind || kindOf(f) === state.kind) &&
+    inTab(f, state.tab) &&
+    (!state.artwork || f.artwork_id === state.artwork) &&
+    (!q || [f.domain, f.page_url, f.image_url, f.title].join(" ").toLowerCase().includes(q)));
+}
+
+function renderStats() {
+  const F = state.findings, count = (s) => F.filter((f) => f.status === s).length;
+  const sites = new Set(F.filter((f) => f.status === "new").map((f) => f.domain)).size;
+  const tiles = [
+    ["hot", count("new"), "ממצאים חדשים לטיפול"],
+    ["", sites, "אתרים עם ממצאים חדשים"],
+    ["", count("takedown_sent"), "נשלחה דרישת הסרה"],
+    ["", count("removed"), "הוסרו"],
+    ["", F.length, "סה״כ ממצאים"],
+  ];
+  $("stats").innerHTML = tiles.map(([c, n, l]) => `<div class="stat ${c}"><b>${n}</b><span>${l}</span></div>`).join("");
+  const run = state.runs[0];
+  $("lastRun").textContent = run
+    ? `סריקה אחרונה: ${new Date(run.finished).toLocaleString("he-IL")} · ${run.artworks} יצירות · ${run.candidates} תוצאות חיפוש נבדקו`
+    : "עדיין לא הייתה סריקה";
+}
+
+function renderToolbar() {
+  const ofKind = state.findings.filter((f) => !state.kind || kindOf(f) === state.kind);
+  $("kinds").innerHTML = KINDS.map(([k, label]) =>
+    `<button class="kind" data-kind="${k}" aria-pressed="${state.kind === k}">${label}<span class="n">${state.findings.filter((f) => (!k || kindOf(f) === k) && inTab(f, "open")).length} לטיפול</span></button>`).join("");
+  $("tabs").innerHTML = TABS.map(([k, label]) =>
+    `<button class="tab" data-tab="${k}" aria-pressed="${state.tab === k}">${label}<span class="n">${ofKind.filter((f) => inTab(f, k)).length}</span></button>`).join("");
+  const arts = [...new Map(state.findings.map((f) => [f.artwork_id, f.artwork_name])).entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], "he"));
+  $("artwork").innerHTML = `<option value="">כל היצירות</option>` +
+    arts.map(([id, n]) => `<option value="${id}" ${id === state.artwork ? "selected" : ""}>${esc(n)}</option>`).join("");
+}
+
+function platformOf(f) {
+  const host = f.domain || "";
+  return state.platforms.find((p) => (p.domains || []).some((d) => host === d || host.endsWith("." + d)));
+}
+
+function tags(f) {
+  const t = [];
+  const p = platformOf(f);
+  if (p) t.push(`<span class="tag">${esc(p.name)}</span>`);
+  if (f.status === "takedown_sent" && f.page_status === "gone") t.push(`<span class="tag strong">נראה שהעמוד הוסר ✓</span>`);
+  else if (PAGE[f.page_status]) t.push(`<span class="tag ${PAGE[f.page_status][0]}">${PAGE[f.page_status][1]}</span>`);
+  t.push(f.level === "confirmed" ? `<span class="tag strong">התאמה ודאית</span>` : `<span class="tag maybe">התאמה אפשרית: כדאי לבדוק</span>`);
+  if (f.coverage < 0.5) t.push(`<span class="tag">חלק מהיצירה</span>`);
+  if (f.grayscale) t.push(`<span class="tag">שחור-לבן</span>`);
+  if (f.mirrored) t.push(`<span class="tag">הפוך (מראה)</span>`);
+  if (f.owner_unknown) t.push(`<span class="tag unknown">לא ידוע מי הבעלים</span>`);
+  if (f.seen_count > 1) t.push(`<span class="tag">נמצא ${f.seen_count} פעמים</span>`);
+  return t.join("");
+}
+
+function card(f) {
+  const link = f.page_url || f.image_url;
+  return `<article class="card" data-id="${f.id}">
+    <div class="pair">
+      <figure><img loading="lazy" src="${esc(api.evidenceUrl(f))}" alt="התמונה שנמצאה" data-zoom="${f.id}"><figcaption>מה שנמצא</figcaption></figure>
+      <figure><img loading="lazy" src="${esc(api.originalUrl(f))}" alt="${esc(f.artwork_name)}" data-zoom="${f.id}"><figcaption>המקור</figcaption></figure>
+    </div>
+    <div class="info">
+      <p class="title">${esc(f.artwork_name)}${f.title ? ` · <span style="color:var(--muted)">${esc(f.title)}</span>` : ""}</p>
+      <div class="url"><a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(link)}</a></div>
+      ${f.page_url ? `<div class="url"><a href="${esc(f.image_url)}" target="_blank" rel="noopener noreferrer" style="color:var(--muted)">קישור לתמונה עצמה</a></div>` : ""}
+      <div class="tags">${tags(f)}</div>
+      <div class="dates">נמצא לראשונה ${fmtDate(f.first_seen)} · נראה לאחרונה ${fmtDate(f.last_seen)} · ציון ${f.inliers}</div>
+      <div class="status">${Object.entries(STATUS).map(([s, l]) =>
+        `<button class="st" data-s="${s}" data-set="${f.id}" aria-pressed="${f.status === s}">${l}</button>`).join("")}</div>
+      <input class="note" data-note="${f.id}" placeholder="הערה (למשל: נשלח מייל ל…)" value="${esc(f.note)}">
+    </div>
+  </article>`;
+}
+
+function renderList() {
+  const groups = new Map();
+  for (const f of visible()) {
+    if (!groups.has(f.domain)) groups.set(f.domain, []);
+    groups.get(f.domain).push(f);
+  }
+  const best = (fs) => Math.max(...fs.map((f) => f.inliers));
+  const newest = (fs) => fs.map((f) => f.first_seen).sort().pop();
+  const sorted = [...groups.entries()].sort((a, b) =>
+    state.sort === "score" ? best(b[1]) - best(a[1]) :
+    state.sort === "new" ? newest(b[1]).localeCompare(newest(a[1])) :
+    b[1].length - a[1].length);
+
+  if (!sorted.length) {
+    $("list").innerHTML = `<div class="empty">אין ממצאים בתצוגה הזאת</div>`;
+    return;
+  }
+  $("list").innerHTML = sorted.slice(0, state.shown).map(([domain, fs]) => {
+    const arts = [...new Set(fs.map((f) => f.artwork_name))];
+    fs.sort((a, b) => b.inliers - a.inliers);
+    return `<section class="group">
+      <div class="group-head">
+        <h2>${esc(domain)}</h2>
+        <span class="meta">${fs.length} ${fs.length === 1 ? "ממצא" : "ממצאים"} · ${esc(arts.slice(0, 3).join(", "))}${arts.length > 3 ? ` ועוד ${arts.length - 3}` : ""}</span>
+        ${fs.length > 1 ? `<span class="bulk">סמן את כל האתר:
+          <select data-bulk="${esc(domain)}"><option value="">בחר…</option>${Object.entries(STATUS).map(([s, l]) => `<option value="${s}">${l}</option>`).join("")}</select></span>` : ""}
+      </div>
+      ${fs.map(card).join("")}
+    </section>`;
+  }).join("") + (sorted.length > state.shown
+    ? `<button class="more" id="more">הצג עוד ${Math.min(GROUP_PAGE, sorted.length - state.shown)} אתרים (מתוך ${sorted.length - state.shown} נוספים)</button>` : "");
+}
+
+const KIND_HINT = {
+  real: "חנויות, מרקטפלייסים ואתרים שמשתמשים ביצירות. כאן כדאי לפנות לאתר או לפלטפורמה.",
+  spam: "חנויות מזויפות שמעתיקות תמונות אוטומטית ומוצגות רק לגוגל. הדרך לטפל: בקשת הסרה מגוגל, לכולן בבת אחת.",
+  "": "",
+};
+function render() { renderStats(); renderToolbar(); $("kindHint").textContent = KIND_HINT[state.kind]; renderList(); }
+
+async function setStatus(ids, status) {
+  const prev = ids.map((id) => [id, state.findings.find((f) => f.id === id).status]);
+  ids.forEach((id) => { state.findings.find((f) => f.id === id).status = status; });
+  render();
+  try { await api.update(ids, { status }); }
+  catch (e) {
+    prev.forEach(([id, s]) => { state.findings.find((f) => f.id === id).status = s; });
+    render();
+    alert("השמירה נכשלה. האם השרת המקומי עדיין רץ?");
+  }
+}
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("[data-kind],[data-tab],[data-set],[data-zoom],#more");
+  if (!t) return;
+  if (t.dataset.kind !== undefined) { state.kind = t.dataset.kind; state.shown = GROUP_PAGE; render(); }
+  else if (t.dataset.tab) { state.tab = t.dataset.tab; state.shown = GROUP_PAGE; render(); }
+  else if (t.dataset.set) setStatus([t.dataset.set], t.dataset.s);
+  else if (t.id === "more") { state.shown += GROUP_PAGE; renderList(); }
+  else if (t.dataset.zoom) {
+    const f = state.findings.find((x) => x.id === t.dataset.zoom);
+    $("zoomBody").innerHTML = `<figure><img src="${esc(api.evidenceUrl(f))}"><figcaption>מה שנמצא · ${esc(f.domain)}</figcaption></figure>
+      <figure><img src="${esc(api.originalUrl(f))}"><figcaption>המקור · ${esc(f.artwork_name)}</figcaption></figure>`;
+    $("zoom").showModal();
+  }
+});
+$("zoom").addEventListener("click", () => $("zoom").close());
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.id === "artwork") { state.artwork = t.value; render(); }
+  else if (t.id === "sort") { state.sort = t.value; renderList(); }
+  else if (t.dataset.bulk && t.value) {
+    const ids = visible().filter((f) => f.domain === t.dataset.bulk).map((f) => f.id);
+    setStatus(ids, t.value);
+  } else if (t.dataset.note !== undefined) {
+    const f = state.findings.find((x) => x.id === t.dataset.note);
+    f.note = t.value;
+    api.update([f.id], { note: t.value }).catch(() => alert("שמירת ההערה נכשלה"));
+  }
+});
+let qTimer;
+$("q").addEventListener("input", (e) => {
+  clearTimeout(qTimer);
+  qTimer = setTimeout(() => { state.q = e.target.value; state.shown = GROUP_PAGE; renderList(); }, 200);
+});
+
+// Takedown request: the links for one platform's form, ready to paste.
+function exportRows() {
+  const key = $("exPlatform").value;
+  const statuses = $("exIncludeSent").checked ? ["new", "takedown_sent"] : ["new"];
+  return state.findings.filter((f) => statuses.includes(f.status) &&
+    (key === "google" || platformOf(f)?.key === key));
+}
+function renderExport() {
+  const p = state.platforms.find((x) => x.key === $("exPlatform").value);
+  const rows = exportRows();
+  const urls = [...new Set(rows.map((f) => f.page_url || f.image_url))];
+  $("exText").value = urls.join("\n");
+  $("exForm").href = p?.report_url || "#";
+  $("exHint").textContent = !urls.length ? "אין ממצאים פתוחים לפלטפורמה הזאת."
+    : p?.key === "google"
+      ? `${urls.length} כתובות. גוגל מסיר אותן מתוצאות החיפוש, גם אם האתר עצמו לא מגיב. מתאים במיוחד לאתרי ספאם.`
+      : `${urls.length} כתובות ב-${p?.name}. בטופס מדביקים אותן בשדה הקישורים לתוכן המפר.`;
+}
+$("openExport").addEventListener("click", () => {
+  const present = new Set(state.findings.filter((f) => f.status === "new").map((f) => platformOf(f)?.key));
+  $("exPlatform").innerHTML = state.platforms
+    .filter((p) => p.key === "google" || present.has(p.key))
+    .map((p) => `<option value="${p.key}">${esc(p.name)}</option>`).join("");
+  renderExport();
+  $("export").showModal();
+});
+$("exPlatform").addEventListener("change", renderExport);
+$("exIncludeSent").addEventListener("change", renderExport);
+$("exCopy").addEventListener("click", async () => {
+  try { await navigator.clipboard.writeText($("exText").value); $("exCopy").textContent = "הועתק ✓"; }
+  catch { $("exText").select(); document.execCommand("copy"); $("exCopy").textContent = "הועתק ✓"; }
+  setTimeout(() => { $("exCopy").textContent = "העתק את הקישורים"; }, 1500);
+});
+$("exMark").addEventListener("click", async () => {
+  const ids = exportRows().filter((f) => f.status === "new").map((f) => f.id);
+  if (ids.length && confirm(`לסמן ${ids.length} ממצאים כ"נשלחה דרישת הסרה"?`)) {
+    await setStatus(ids, "takedown_sent");
+    renderExport();
+  }
+});
+
+function start() {
+  return api.load().then((d) => { state.findings = d.findings; state.runs = d.runs; state.platforms = d.platforms || []; render(); })
+    .catch(() => {
+      $("lastRun").textContent = CFG
+        ? "לא הצלחתי לטעון את הנתונים. ייתכן שהמשתמש שלך עוד לא אושר לצפייה."
+        : "לא הצלחתי לטעון את הנתונים. האם השרת המקומי רץ?";
+    });
+}
+
+if (!CFG) {
+  start();
+} else {
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
+  s.onload = async () => {
+    sb = window.supabase.createClient(CFG.supabaseUrl, CFG.publishableKey);
+    const { data } = await sb.auth.getSession();
+    if (data.session) start();
+    else { $("login").hidden = false; $("loginEmail").focus(); }
+  };
+  document.head.appendChild(s);
+  $("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("loginError").textContent = "";
+    const { error } = await sb.auth.signInWithPassword({ email: $("loginEmail").value.trim(), password: $("loginPassword").value });
+    if (error) { $("loginError").textContent = "המייל או הסיסמה לא נכונים."; return; }
+    $("login").hidden = true;
+    start();
+  });
+}
+</script>
+</body>
+</html>
