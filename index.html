@@ -105,6 +105,7 @@ dialog::backdrop { background: rgba(0,0,0,.75); }
 .zoom img { max-height: 80vh; max-width: 46vw; background: #fff; border-radius: 6px; }
 .st.urgent[aria-pressed="true"] { background: var(--new-soft); color: var(--new); border-color: currentColor; font-weight: 700; }
 .fields { display: grid; gap: 8px; }
+.hint.section { color: var(--ink); font-weight: 700; margin: 8px 0 0; border-top: 1px solid var(--line); padding-top: 8px; }
 .field { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
 .field input { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
   background: var(--bg); color: var(--ink); min-width: 0; }
@@ -502,7 +503,7 @@ $("q").addEventListener("input", (e) => {
 // Google's site, so it can't be filled from here; copy buttons are the next best thing.
 const OWNER = [["owner_name", "שם בעל הזכויות"], ["owner_role", "תפקיד"], ["owner_email", "מייל"],
                ["owner_phone", "טלפון"], ["owner_street", "רחוב ומספר"], ["owner_city", "עיר"],
-               ["owner_zip", "מיקוד"], ["owner_country", "מדינה"]];
+               ["owner_region", "מחוז"], ["owner_zip", "מיקוד"], ["owner_country", "מדינה"]];
 let ytFinding = null;
 
 function videoUrl(f) {
@@ -517,25 +518,32 @@ function openYt(f) {
   ytFinding = f;
   const s = state.settings, name = s.owner_name || "Tamar Zeitlin";
   const source = state.sources[f.artwork_id] || "https://www.tamarzeitlin.com/";
-  // Same order as YouTube's form: the infringing video and the work first, then contact details, then signature.
-  $("ytFields").innerHTML = [
-    ["Video URL – קישור לסרטון", videoUrl(f)],
-    ["Type of work – סוג היצירה", "Visual art (original painting)"],
-    ["Title of work – שם היצירה", `Original painting "${f.artwork_name}" by Tamar Zeitlin`],
-    ["Where it appears – איפה בסרטון",
-     "My painting is shown in this video (in the video and/or its thumbnail) without my permission."],
-    ["Original URL – מקור היצירה", source],
-    ["Copyright owner – בעל הזכויות", name],
-    ["Full legal name – שם מלא", name],
-    ["Title / position – תפקיד", s.owner_role || "Artist and copyright owner"],
-    ["Email – מייל", s.owner_email || ""],
-    ["Phone – טלפון", s.owner_phone || ""],
-    ["Street – רחוב", s.owner_street || ""],
-    ["City – עיר", s.owner_city || ""],
-    ["Postal code – מיקוד", s.owner_zip || ""],
-    ["Country – מדינה", s.owner_country || "Israel"],
-    ["Signature – חתימה", name],
-  ].map(([l, v], i) => field(`${i + 1}. ${l}`, v)).join("");
+  // Same sections and order as YouTube's (Hebrew) form. Strings starting with "!" are
+  // section headings or tips for choices made on the form itself (nothing to copy).
+  const phone = (s.owner_phone || "").replace(/^0/, "+972");
+  const rows = [
+    ["!1. הסרטונים שיועמדו להסרה"],
+    ["!סוג התוכן: לבחור בטופס את האפשרות של יצירה חזותית / ציור"],
+    ["תיאור היצירה (עד 300 תווים)",
+     `Original painting "${f.artwork_name}" by Tamar Zeitlin, shown in this video without permission. Original: ${source}`.slice(0, 300)],
+    ["הסרטון שמפר את זכויות היוצרים", videoUrl(f)],
+    ["!אחרי הדבקת הקישור ללחוץ \"הוספה לרשימה\""],
+    ["!2. הבעלים של זכויות היוצרים (מי מושפע: אני)"],
+    ["שם בעל זכויות היוצרים", name],
+    ["טלפון", phone],
+    ["כתובת אימייל", s.owner_email || ""],
+    ["התפקיד / הסמכות שלך", s.owner_role || "Artist and copyright owner"],
+    ["מדינה", s.owner_country || "Israel"],
+    ["כתובת (רחוב)", s.owner_street || ""],
+    ["עיר", s.owner_city || ""],
+    ["מדינה / מחוז", s.owner_region || "Jerusalem District"],
+    ["מיקוד", s.owner_zip || ""],
+    ["!3. אפשרויות הסרה: לבחור \"רגילה\", ולסמן את התיבה למניעת העלאה של עותקים"],
+    ["!4. הסכמים משפטיים: לסמן את כל התיבות, ואז לחתום"],
+    ["חתימה", name],
+  ];
+  $("ytFields").innerHTML = rows.map(([l, v]) =>
+    v === undefined ? `<p class="hint section">${esc(l.slice(1))}</p>` : field(l, v)).join("");
   $("ytOwner").innerHTML = OWNER.map(([k, l]) =>
     `<label class="field"><span>${l}</span><input data-owner="${k}" value="${esc(s[k] || "")}" dir="auto"></label>`).join("");
   $("yt").showModal();
