@@ -500,8 +500,9 @@ $("q").addEventListener("input", (e) => {
 
 // YouTube complaint: every field the form asks for, ready to copy. The form is on
 // Google's site, so it can't be filled from here; copy buttons are the next best thing.
-const OWNER = [["owner_name", "שם בעל הזכויות"], ["owner_email", "מייל"], ["owner_phone", "טלפון"],
-               ["owner_address", "כתובת"], ["owner_country", "מדינה"]];
+const OWNER = [["owner_name", "שם בעל הזכויות"], ["owner_role", "תפקיד"], ["owner_email", "מייל"],
+               ["owner_phone", "טלפון"], ["owner_street", "רחוב ומספר"], ["owner_city", "עיר"],
+               ["owner_zip", "מיקוד"], ["owner_country", "מדינה"]];
 let ytFinding = null;
 
 function videoUrl(f) {
@@ -516,21 +517,25 @@ function openYt(f) {
   ytFinding = f;
   const s = state.settings, name = s.owner_name || "Tamar Zeitlin";
   const source = state.sources[f.artwork_id] || "https://www.tamarzeitlin.com/";
+  // Same order as YouTube's form: the infringing video and the work first, then contact details, then signature.
   $("ytFields").innerHTML = [
-    ["קישור לסרטון המפר", videoUrl(f)],
-    ["Copyright owner", name],
-    ["Your full legal name", name],
-    ["Email", s.owner_email || ""],
-    ["Phone", s.owner_phone || ""],
-    ["Address", s.owner_address || ""],
-    ["Country", s.owner_country || "Israel"],
-    ["Type of work", "Visual art (original painting)"],
-    ["Title / description of the work", `Original painting "${f.artwork_name}" by Tamar Zeitlin`],
-    ["Where the original is published", source],
-    ["Where it appears in the video",
+    ["Video URL – קישור לסרטון", videoUrl(f)],
+    ["Type of work – סוג היצירה", "Visual art (original painting)"],
+    ["Title of work – שם היצירה", `Original painting "${f.artwork_name}" by Tamar Zeitlin`],
+    ["Where it appears – איפה בסרטון",
      "My painting is shown in this video (in the video and/or its thumbnail) without my permission."],
-    ["Signature", name],
-  ].map(([l, v]) => field(l, v)).join("");
+    ["Original URL – מקור היצירה", source],
+    ["Copyright owner – בעל הזכויות", name],
+    ["Full legal name – שם מלא", name],
+    ["Title / position – תפקיד", s.owner_role || "Artist and copyright owner"],
+    ["Email – מייל", s.owner_email || ""],
+    ["Phone – טלפון", s.owner_phone || ""],
+    ["Street – רחוב", s.owner_street || ""],
+    ["City – עיר", s.owner_city || ""],
+    ["Postal code – מיקוד", s.owner_zip || ""],
+    ["Country – מדינה", s.owner_country || "Israel"],
+    ["Signature – חתימה", name],
+  ].map(([l, v], i) => field(`${i + 1}. ${l}`, v)).join("");
   $("ytOwner").innerHTML = OWNER.map(([k, l]) =>
     `<label class="field"><span>${l}</span><input data-owner="${k}" value="${esc(s[k] || "")}" dir="auto"></label>`).join("");
   $("yt").showModal();
