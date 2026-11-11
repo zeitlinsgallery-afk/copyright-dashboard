@@ -94,6 +94,15 @@ window.DASH_CONFIG = {
    "report_url": "https://support.google.com/youtube/answer/2807622"
   },
   {
+   "key": "spotify",
+   "name": "Spotify",
+   "domains": [
+    "spotify.com",
+    "scdn.co"
+   ],
+   "report_url": "https://support.spotify.com/article/copyright-policy/"
+  },
+  {
    "key": "tiktok",
    "name": "TikTok",
    "domains": [
