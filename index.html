@@ -103,6 +103,14 @@ dialog::backdrop { background: rgba(0,0,0,.75); }
 .zoom { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .zoom figure { margin: 0; text-align: center; color: #eee; font-size: 13px; }
 .zoom img { max-height: 80vh; max-width: 46vw; background: #fff; border-radius: 6px; }
+.fields { display: grid; gap: 8px; }
+.field { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
+.field input { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); min-width: 0; }
+.field button { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--ink); }
+a.primary { text-decoration: none; display: inline-block; }
+@media (max-width: 640px) { .field { grid-template-columns: 1fr auto; } .field span { grid-column: 1 / -1; } }
 .primary { font: inherit; font-size: 14px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--accent); background: var(--accent); color: var(--panel); }
 dialog.panel { background: var(--panel); color: var(--ink); border-radius: 12px; width: min(640px, 94vw); }
@@ -176,6 +184,25 @@ dialog.panel { background: var(--panel); color: var(--ink); border-radius: 12px;
   </form>
 </dialog>
 
+<dialog id="yt" class="panel">
+  <form method="dialog" class="export">
+    <h2>תלונה ביוטיוב על הפרת זכויות יוצרים</h2>
+    <p class="hint">1. פותחים את הטופס של יוטיוב. 2. מעתיקים כל שדה לשדה המתאים בטופס. 3. אחרי השליחה מסמנים כאן "נשלחה".</p>
+    <div class="actions">
+      <a class="primary" href="https://www.youtube.com/copyright_complaint_form" target="_blank" rel="noopener noreferrer">פתח את הטופס של יוטיוב ↗</a>
+    </div>
+    <div id="ytFields" class="fields"></div>
+    <details>
+      <summary>עריכת פרטי בעל הזכויות</summary>
+      <div id="ytOwner" class="fields"></div>
+      <button type="button" id="ytSaveOwner">שמירת הפרטים</button>
+    </details>
+    <div class="actions">
+      <button type="button" class="primary" id="ytSent">סמן: נשלחה דרישת הסרה</button>
+      <button value="close">סגור</button>
+    </div>
+  </form>
+</dialog>
 <div id="login" class="login" hidden>
   <form id="loginForm">
     <h2>כניסה לדשבורד</h2>
@@ -234,7 +261,15 @@ const cloudApi = {
       (data || []).forEach((d) => { if (d.signedUrl) signed[d.path] = d.signedUrl; });
     }
     const { data: runs } = await sb.from("runs").select("stats").order("finished", { ascending: false }).limit(1);
-    return { findings, runs: (runs || []).map((r) => r.stats), platforms: CFG.platforms };
+    const { data: settings } = await sb.from("settings").select("key,value");
+    const { data: arts } = await sb.from("artworks").select("id,source_url");
+    return { findings, runs: (runs || []).map((r) => r.stats), platforms: CFG.platforms,
+             settings: Object.fromEntries((settings || []).map((s) => [s.key, s.value])),
+             sources: Object.fromEntries((arts || []).map((a) => [a.id, a.source_url])) };
+  },
+  async saveSettings(values) {
+    const { error } = await sb.from("settings").upsert(Object.entries(values).map(([key, value]) => ({ key, value })));
+    if (error) throw error;
   },
   async update(ids, patch) {
     const row = { ...patch };
@@ -267,7 +302,7 @@ const PAGE = {
 const SPAM_URL = /[?&][a-z0-9]{1,8}=(\d{2}[._]\d{5,7}[._]\d[._]\d{1,3}|[a-z]{0,10}\d{13,})$|-[0-9a-f]{7}-\d{2}-\d{6,7}-\d-\d{1,3}\/?$/i;
 const KINDS = [["real", "אתרים אמיתיים"], ["spam", "ספאם ותוצאות גוגל"], ["", "הכול"]];
 
-const state = { findings: [], runs: [], platforms: [], kind: "real", tab: "open", artwork: "", q: "", sort: "count", shown: GROUP_PAGE };
+const state = { findings: [], runs: [], platforms: [], settings: {}, sources: {}, kind: "real", tab: "open", artwork: "", q: "", sort: "count", shown: GROUP_PAGE };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString("he-IL", { day: "numeric", month: "numeric", year: "2-digit" }) : "";
@@ -359,6 +394,7 @@ function card(f) {
       <div class="dates">נמצא לראשונה ${fmtDate(f.first_seen)} · נראה לאחרונה ${fmtDate(f.last_seen)} · ציון ${f.inliers}</div>
       <div class="status">${Object.entries(STATUS).map(([s, l]) =>
         `<button class="st" data-s="${s}" data-set="${f.id}" aria-pressed="${f.status === s}">${l}</button>`).join("")}</div>
+      ${CFG && platformOf(f)?.key === "youtube" ? `<button type="button" class="st" data-yt="${f.id}">תלונה ביוטיוב…</button>` : ""}
       <input class="note" data-note="${f.id}" placeholder="הערה (למשל: נשלח מייל ל…)" value="${esc(f.note)}">
     </div>
   </article>`;
@@ -417,8 +453,9 @@ async function setStatus(ids, status) {
 }
 
 document.addEventListener("click", (e) => {
-  const t = e.target.closest("[data-kind],[data-tab],[data-set],[data-zoom],#more");
+  const t = e.target.closest("[data-kind],[data-tab],[data-set],[data-zoom],[data-yt],#more");
   if (!t) return;
+  if (t.dataset.yt) return openYt(state.findings.find((f) => f.id === t.dataset.yt));
   if (t.dataset.kind !== undefined) { state.kind = t.dataset.kind; state.shown = GROUP_PAGE; render(); }
   else if (t.dataset.tab) { state.tab = t.dataset.tab; state.shown = GROUP_PAGE; render(); }
   else if (t.dataset.set) setStatus([t.dataset.set], t.dataset.s);
@@ -448,6 +485,60 @@ let qTimer;
 $("q").addEventListener("input", (e) => {
   clearTimeout(qTimer);
   qTimer = setTimeout(() => { state.q = e.target.value; state.shown = GROUP_PAGE; renderList(); }, 200);
+});
+
+// YouTube complaint: every field the form asks for, ready to copy. The form is on
+// Google's site, so it can't be filled from here; copy buttons are the next best thing.
+const OWNER = [["owner_name", "שם בעל הזכויות"], ["owner_email", "מייל"], ["owner_phone", "טלפון"],
+               ["owner_address", "כתובת"], ["owner_country", "מדינה"]];
+let ytFinding = null;
+
+function videoUrl(f) {
+  const m = /ytimg\.com\/vi(?:_webp)?\/([A-Za-z0-9_-]{11})\//.exec(f.image_url);
+  return f.page_url || (m ? `https://www.youtube.com/watch?v=${m[1]}` : f.image_url);
+}
+function field(label, value) {
+  return `<label class="field"><span>${esc(label)}</span><input readonly value="${esc(value)}" dir="auto">
+    <button type="button" data-copy>העתק</button></label>`;
+}
+function openYt(f) {
+  ytFinding = f;
+  const s = state.settings, name = s.owner_name || "Tamar Zeitlin";
+  const source = state.sources[f.artwork_id] || "https://www.tamarzeitlin.com/";
+  $("ytFields").innerHTML = [
+    ["קישור לסרטון המפר", videoUrl(f)],
+    ["Copyright owner", name],
+    ["Your full legal name", name],
+    ["Email", s.owner_email || ""],
+    ["Phone", s.owner_phone || ""],
+    ["Address", s.owner_address || ""],
+    ["Country", s.owner_country || "Israel"],
+    ["Type of work", "Visual art (original painting)"],
+    ["Title / description of the work", `Original painting "${f.artwork_name}" by Tamar Zeitlin`],
+    ["Where the original is published", source],
+    ["Where it appears in the video",
+     "My painting is shown in this video (in the video and/or its thumbnail) without my permission."],
+    ["Signature", name],
+  ].map(([l, v]) => field(l, v)).join("");
+  $("ytOwner").innerHTML = OWNER.map(([k, l]) =>
+    `<label class="field"><span>${l}</span><input data-owner="${k}" value="${esc(s[k] || "")}" dir="auto"></label>`).join("");
+  $("yt").showModal();
+}
+$("yt").addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-copy]");
+  if (!b) return;
+  await navigator.clipboard.writeText(b.previousElementSibling.value);
+  b.textContent = "הועתק ✓";
+  setTimeout(() => { b.textContent = "העתק"; }, 1200);
+});
+$("ytSaveOwner").addEventListener("click", async () => {
+  const values = Object.fromEntries([...document.querySelectorAll("[data-owner]")].map((i) => [i.dataset.owner, i.value.trim()]));
+  try { await api.saveSettings(values); Object.assign(state.settings, values); openYt(ytFinding); }
+  catch { alert("שמירת הפרטים נכשלה"); }
+});
+$("ytSent").addEventListener("click", async () => {
+  await setStatus([ytFinding.id], "takedown_sent");
+  $("yt").close();
 });
 
 // Takedown request: the links for one platform's form, ready to paste.
@@ -492,7 +583,11 @@ $("exMark").addEventListener("click", async () => {
 });
 
 function start() {
-  return api.load().then((d) => { state.findings = d.findings; state.runs = d.runs; state.platforms = d.platforms || []; render(); })
+  return api.load().then((d) => {
+    Object.assign(state, { findings: d.findings, runs: d.runs, platforms: d.platforms || [],
+                           settings: d.settings || {}, sources: d.sources || {} });
+    render();
+  })
     .catch(() => {
       $("lastRun").textContent = CFG
         ? "לא הצלחתי לטעון את הנתונים. ייתכן שהמשתמש שלך עוד לא אושר לצפייה."
