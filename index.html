@@ -103,6 +103,7 @@ dialog::backdrop { background: rgba(0,0,0,.75); }
 .zoom { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .zoom figure { margin: 0; text-align: center; color: #eee; font-size: 13px; }
 .zoom img { max-height: 80vh; max-width: 46vw; background: #fff; border-radius: 6px; }
+.st.urgent[aria-pressed="true"] { background: var(--new-soft); color: var(--new); border-color: currentColor; font-weight: 700; }
 .fields { display: grid; gap: 8px; }
 .field { display: grid; grid-template-columns: 150px 1fr auto; gap: 8px; align-items: center; font-size: 13px; }
 .field input { font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
@@ -286,7 +287,7 @@ const STATUS = {
   new: "חדש", takedown_sent: "נשלחה דרישת הסרה", removed: "הוסר",
   not_infringing: "לא הפרה", authorized: "מורשה",
 };
-const TABS = [["open", "לטיפול"], ["new", "חדש"], ["takedown_sent", "נשלחה דרישה"],
+const TABS = [["urgent", "🔴 דחוף"], ["open", "לטיפול"], ["new", "חדש"], ["takedown_sent", "נשלחה דרישה"],
               ["removed", "הוסר"], ["closed", "לא הפרה / מורשה"], ["all", "הכול"]];
 const GROUP_PAGE = 30;
 
@@ -309,6 +310,7 @@ const fmtDate = (iso) => iso ? new Date(iso).toLocaleDateString("he-IL", { day: 
 
 function inTab(f, tab) {
   if (tab === "all") return true;
+  if (tab === "urgent") return !!f.urgent;
   if (tab === "open") return f.status === "new" || f.status === "takedown_sent";
   if (tab === "closed") return f.status === "not_infringing" || f.status === "authorized";
   return f.status === tab;
@@ -394,6 +396,7 @@ function card(f) {
       <div class="dates">נמצא לראשונה ${fmtDate(f.first_seen)} · נראה לאחרונה ${fmtDate(f.last_seen)} · ציון ${f.inliers}</div>
       <div class="status">${Object.entries(STATUS).map(([s, l]) =>
         `<button class="st" data-s="${s}" data-set="${f.id}" aria-pressed="${f.status === s}">${l}</button>`).join("")}</div>
+      ${CFG ? `<button type="button" class="st urgent" data-urgent="${f.id}" aria-pressed="${!!f.urgent}">${f.urgent ? "🔴 דחוף (בטל)" : "נדרש טיפול דחוף"}</button>` : ""}
       ${CFG && platformOf(f)?.key === "youtube" ? `<button type="button" class="st" data-yt="${f.id}">תלונה ביוטיוב…</button>` : ""}
       <input class="note" data-note="${f.id}" placeholder="הערה (למשל: נשלח מייל ל…)" value="${esc(f.note)}">
     </div>
@@ -408,7 +411,9 @@ function renderList() {
   }
   const best = (fs) => Math.max(...fs.map((f) => f.inliers));
   const newest = (fs) => fs.map((f) => f.first_seen).sort().pop();
+  const urgentIn = (fs) => fs.some((f) => f.urgent) ? 1 : 0;
   const sorted = [...groups.entries()].sort((a, b) =>
+    urgentIn(b[1]) - urgentIn(a[1]) ||
     state.sort === "score" ? best(b[1]) - best(a[1]) :
     state.sort === "new" ? newest(b[1]).localeCompare(newest(a[1])) :
     b[1].length - a[1].length);
@@ -419,7 +424,7 @@ function renderList() {
   }
   $("list").innerHTML = sorted.slice(0, state.shown).map(([domain, fs]) => {
     const arts = [...new Set(fs.map((f) => f.artwork_name))];
-    fs.sort((a, b) => b.inliers - a.inliers);
+    fs.sort((a, b) => (b.urgent ? 1 : 0) - (a.urgent ? 1 : 0) || b.inliers - a.inliers);
     return `<section class="group">
       <div class="group-head">
         <h2>${esc(domain)}</h2>
@@ -453,8 +458,14 @@ async function setStatus(ids, status) {
 }
 
 document.addEventListener("click", (e) => {
-  const t = e.target.closest("[data-kind],[data-tab],[data-set],[data-zoom],[data-yt],#more");
+  const t = e.target.closest("[data-kind],[data-tab],[data-set],[data-zoom],[data-yt],[data-urgent],#more");
   if (!t) return;
+  if (t.dataset.urgent) {
+    const f = state.findings.find((x) => x.id === t.dataset.urgent);
+    f.urgent = !f.urgent;
+    render();
+    return api.update([f.id], { urgent: f.urgent }).catch(() => { f.urgent = !f.urgent; render(); alert("השמירה נכשלה"); });
+  }
   if (t.dataset.yt) return openYt(state.findings.find((f) => f.id === t.dataset.yt));
   if (t.dataset.kind !== undefined) { state.kind = t.dataset.kind; state.shown = GROUP_PAGE; render(); }
   else if (t.dataset.tab) { state.tab = t.dataset.tab; state.shown = GROUP_PAGE; render(); }
