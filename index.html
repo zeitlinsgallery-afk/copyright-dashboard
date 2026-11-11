@@ -527,6 +527,10 @@ function openYt(f) {
     ["תיאור היצירה (עד 300 תווים)",
      `Original painting "${f.artwork_name}" by Tamar Zeitlin, shown in this video without permission. Original: ${source}`.slice(0, 300)],
     ["הסרטון שמפר את זכויות היוצרים", videoUrl(f)],
+    // The scan only sees images: a ytimg.com hit is the video's thumbnail.
+    [/ytimg\.com/.test(f.image_url)
+      ? "!מיקום ההפרה: לבחור \"תמונה ממוזערת מותאמת אישית\" (הציור נמצא בתמונה הממוזערת של הסרטון). אם הציור מופיע גם בתוך הסרטון, אפשר להוסיף \"חותמות זמן\""
+      : "!מיקום ההפרה: לבחור \"כל הסרטון\", או \"חותמות זמן\" אם הציור מופיע רק בחלק מהסרטון"],
     ["!אחרי הדבקת הקישור ללחוץ \"הוספה לרשימה\""],
     ["!2. הבעלים של זכויות היוצרים (מי מושפע: אני)"],
     ["שם בעל זכויות היוצרים", name],
